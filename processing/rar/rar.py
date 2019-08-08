@@ -6,7 +6,7 @@ from fame.common.utils import tempdir
 
 
 class Rar(ProcessingModule):
-    name = "zip"
+    name = "rar"
     description = "Extract files from RAR archive."
     acts_on = "rar"
 
