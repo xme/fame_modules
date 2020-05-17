@@ -1,0 +1,31 @@
+<div class="col-md-12">
+    <div class="card">
+        <div class="header">
+            <h4 class="title">FLOSS</h4>
+            <p class="category">Detailed Results</p>
+        </div>
+        <div class="content">
+            {% for warning in results.warnings %}
+                <div class="close-alert alert alert-warning">{{warning}}</div>
+            {% endfor %}
+            {% if results.static_strings %}
+                <label>Static Strings</label>
+                <pre><code>{% for s in results.static_strings -%}{{s}}
+{% endfor %}
+<code></pre>
+            {% endif %}
+            {% if results.stack_strings %}
+                <label>Stack Strings</label>
+                <pre><code>{% for s in results.stack_strings -%}{{s}}
+{% endfor %}
+</code></pre>
+            {% endif %}
+            {% if results.decoded_strings %}
+                <label>Static Strings</label>
+                <pre><code>{% for s in results.decoded_strings -%}{{s}}
+{% endfor %}
+</code></pre>
+            {% endif %}
+        </div>
+    </div>
+</div>

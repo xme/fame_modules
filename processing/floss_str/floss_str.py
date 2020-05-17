@@ -12,7 +12,7 @@ from fame.common.utils import tempdir
 
 MAX_FILESIZE = 16*1024*1024
 
-class FLOSS(ProcessingModule):
+class floss_str(ProcessingModule):
     name = "floss"
     description = "Extract (encoded) strings from binaries."
 
@@ -39,7 +39,10 @@ class FLOSS(ProcessingModule):
 
     def each(self, target):
         self.results = {
-            'warnings': []
+            'warnings': [],
+            'static_strings': [],
+            'decoded_strings': [],
+            'stack_strings': []
         }
 
         tmpdir = tempdir()
@@ -101,16 +104,14 @@ class FLOSS(ProcessingModule):
             # convert Floss strings into regular, readable strings
             for idx, s in enumerate(decoded_strings):
                 decoded_strings[idx] = main.sanitize_string_for_printing(s.s)
+                self.results['decoded_strings'].append(str(main.sanitize_string_for_printing(s.s)))
 
             for idx, s in enumerate(stack_strings):
                 stack_strings[idx] = s.s
-
-            results = [decoded_strings, stack_strings, static_strings]
-            for idx, str_type in enumerate(STRING_TYPES):
-                strings[str_type] = results[idx]
+                self.results['stack_strings'].append(str(s.s))
         else:
+            for s in static_strings:
+                self.results['static_strings'].append(str(s))
             strings["static"] = static_strings
-
-        self.results['strings'].append(strings)
 
         return True
