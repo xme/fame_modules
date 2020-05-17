@@ -45,15 +45,12 @@ class floss_str(ProcessingModule):
             'stack_strings': []
         }
 
-        tmpdir = tempdir()
-        strings = {}
-
         try:
             data = open(target, "r").read(MAX_FILESIZE)
         except (IOError, OSError) as e:
-            self.results['warnings'].append(u'Cannot open file {}'.format(f.filename))
+            self.log('error', 'Cannot open file {}'.format(target))
             self.results = None
-            return True
+            return False
 
         # Extract static strings
         static_strings = re.findall("[\x1f-\x7e]{" + str(self.minimum_string_len) + ",}", data)
@@ -65,7 +62,7 @@ class floss_str(ProcessingModule):
                 static_strings[i] = s[:self.maximum_string_len]
 
         if self.maximum_strings != 0 and len(static_strings) > self.maximum_strings:
-            self.results['warnings'].append(u'Maximum number of strings reached ({})'.format(str(self.maximum_strings)))
+            self.log('warning', 'Maximum number of strings reached ({})'.format(str(self.maximum_strings)))
             static_strings = static_strings[:self.maximum_strings]
             static_strings.append("[snip]")
 
@@ -80,8 +77,9 @@ class floss_str(ProcessingModule):
                  vw, main.get_all_plugins(), selected_functions
             )
         except Exception as e:
-            self.results['warnings'].append(u'Cannot analze file {}'.format(f.filename))
-            return True
+            self.error('error','Cannot analyze file {}'.format(target))
+            self.results = None
+            return False
 
         try:
             # Decode & extract hidden & encoded strings
@@ -97,11 +95,13 @@ class floss_str(ProcessingModule):
 
             decoded_strings = [x for x in decoded_strs if not x in static_strings]
         except Exception as e:
-            self.results['warnings'].append(u'Cannot extract strings from {}'.format(f.filename))
-            return True
+            self.log('error','Cannot extract strings from {}'.format(target))
+            self.results = None
+            return False
 
         if len(decoded_strings) or len(stack_strings):
             # convert Floss strings into regular, readable strings
+            self.log('info', 'Found stack or decoded strings')
             for idx, s in enumerate(decoded_strings):
                 decoded_strings[idx] = main.sanitize_string_for_printing(s.s)
                 self.results['decoded_strings'].append(str(main.sanitize_string_for_printing(s.s)))
@@ -110,8 +110,8 @@ class floss_str(ProcessingModule):
                 stack_strings[idx] = s.s
                 self.results['stack_strings'].append(str(s.s))
         else:
+            self.log('info', 'Found static strings')
             for s in static_strings:
                 self.results['static_strings'].append(str(s))
-            strings["static"] = static_strings
 
         return True
