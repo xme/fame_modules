@@ -147,7 +147,7 @@ class floss_str(ProcessingModule):
         # Populate results[] with found strings
         if len(decoded_strings) or len(stack_strings):
             self.log('info', 'Found stack or decoded strings')
-            for s in enumerate(decoded_strings):
+            for k, s in enumerate(decoded_strings):
                 buffer = main.sanitize_string_for_printing(s.s)
                 skip = False
                 for ignore in ignored_strings:
@@ -161,7 +161,7 @@ class floss_str(ProcessingModule):
                            self.results['warnings'].append('Found suspicious string: {}'.format(buffer))
                            break
 
-            for s in enumerate(stack_strings):
+            for k, s in enumerate(stack_strings):
                 skip = False
                 for ignore in ignored_strings:
                    if str(s.s).find(ignore) >= 0:
@@ -173,19 +173,20 @@ class floss_str(ProcessingModule):
                         if str(s.s).find(ioc) >= 0:
                            self.results['warnings'].append('Found suspicious string: {}'.format(s.s))
                            break
-        else:
-            self.log('info', 'Found static strings')
-            for s in static_strings:
-                skip = False
-                for ignore in ignored_strings:
-                    if str(s).find(ignore) >= 0:
-                        skip = True
-                        break
-                if not skip:
-                    self.results['static_strings'].append(s)
-                    for ioc in interesting_strings:
-                        if str(s).find(ioc) >= 0:
-                           self.results['warnings'].append('Found suspicious string: {}'.format(s))
-                           break
+
+        # Populate results[] with static strings
+        self.log('info', 'Found static strings')
+        for s in static_strings:
+            skip = False
+            for ignore in ignored_strings:
+                if str(s).find(ignore) >= 0:
+                    skip = True
+                    break
+            if not skip:
+                self.results['static_strings'].append(s)
+                for ioc in interesting_strings:
+                    if str(s).find(ioc) >= 0:
+                       self.results['warnings'].append('Found suspicious string: {}'.format(s))
+                       break
 
         return True
