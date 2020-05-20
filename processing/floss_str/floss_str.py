@@ -1,3 +1,12 @@
+#!/usr/bin/python
+#
+# FLOSS module for FAME (https://github.com/certsocietegenerale/fame)
+# 
+# Author: Xavier Mertens <xavier@rootshell.be>
+# Copyright: GPLv3 (http://gplv3.fsf.org/)
+# Feel free to use the code, but please share the changes you've made
+#
+
 import os
 import re
 
@@ -20,6 +29,7 @@ from fame.core.module import ProcessingModule
 from fame.common.utils import tempdir
 
 MAX_FILESIZE = 16*1024*1024
+STRING_SEPARATOR = '_AND_'
 
 class floss_str(ProcessingModule):
     name = "floss"
@@ -56,11 +66,34 @@ class floss_str(ProcessingModule):
         }
     ]
 
+    interesting_strings = []
+    ignored_strings = []
+
     def initialize(self):
         if not HAVE_VIVISECT:
             raise ModuleInitializationError(self, "Missing dependency: vivisect")
         if not HAVE_FLOSS:
             raise ModuleInitializationError(self, "Missing dependency: floss")
+
+    # Search for IOC's in strings
+    def search_ioc(self,strings_array):
+        for ioc in self.interesting_strings:
+            if STRING_SEPARATOR in ioc:
+                # Process a correlation of multiple strings
+                simple_ioc = ioc.split(STRING_SEPARATOR)
+                l = len(simple_ioc)
+                for c in simple_ioc:
+                    for string in strings_array:
+                        if str(string).find(c) >= 0:
+                            l-=1;
+                            break
+                if l == 0:
+                    self.results['warnings'].append('Found suspicious correlation of strings: {}'.format(ioc.replace(STRING_SEPARATOR, ',')))
+            else:    
+                for string in strings_array:
+                    if str(string).find(ioc) >= 0:
+                        self.results['warnings'].append('Found suspicious string: {}'.format(ioc))
+                        break
 
     def each(self, target):
         self.results = {
@@ -76,6 +109,26 @@ class floss_str(ProcessingModule):
             self.log('error', 'Cannot open file {}'.format(target))
             self.results = None
             return False
+
+        # Load list of IOC's
+        try:
+            with open(self.interesting_strings_file) as f:
+               self.interesting_strings = f.read().splitlines()
+            self.log('info', 'Loaded interesting strings from {}'.format(self.interesting_strings_file))
+        except:
+            # No IOC file, create an empty list           
+            self.log('info', 'No file with interesting strings defined')
+            self.interesting_strings = []
+
+        # Load list of ignored strings
+        try:
+            with open(self.ignored_strings_file) as f:
+               self.ignored_strings = f.read().splitlines()
+            self.log('info', 'Loaded ignored strings from {}'.format(self.ignored_strings_file))
+        except:
+            # No IOC file, create an empty list           
+            self.log('info', 'No file with ignored strings defined')
+            self.ignored_strings = []
 
         # Extract static strings
         static_strings = re.findall("[\x1f-\x7e]{" + str(self.minimum_string_len) + ",}", data)
@@ -106,26 +159,6 @@ class floss_str(ProcessingModule):
             self.results = None
             return False
 
-        # Load list of IOC's
-        try:
-            with open(self.interesting_strings_file) as f:
-               interesting_strings = f.read().splitlines()
-            self.log('info', 'Loaded interesting strings from {}'.format(self.interesting_strings_file))
-        except:
-            # No IOC file, create an empty list           
-            self.log('info', 'No file with interesting strings defined')
-            interesting_strings = []
-
-        # Load list of ignored strings
-        try:
-            with open(self.ignored_strings_file) as f:
-               ignored_strings = f.read().splitlines()
-            self.log('info', 'Loaded ignored strings from {}'.format(self.ignored_strings_file))
-        except:
-            # No IOC file, create an empty list           
-            self.log('info', 'No file with ignored strings defined')
-            ignored_strings = []
-
         # Decode & extract hidden & encoded strings
         try:
             decoded_strings = main.decode_strings(
@@ -150,43 +183,37 @@ class floss_str(ProcessingModule):
             for k, s in enumerate(decoded_strings):
                 buffer = main.sanitize_string_for_printing(s.s)
                 skip = False
-                for ignore in ignored_strings:
+                for ignore in self.ignored_strings:
                    if str(buffer).find(ignore) >= 0:
                      skip = True
                      break
                 if not skip:
                     self.results['decoded_strings'].append(buffer)
-                    for ioc in interesting_strings:
-                        if str(buffer).find(ioc) >= 0:
-                           self.results['warnings'].append('Found suspicious string: {}'.format(buffer))
-                           break
+            self.search_ioc(self.results['decoded_strings'])
 
             for k, s in enumerate(stack_strings):
                 skip = False
-                for ignore in ignored_strings:
+                for ignore in self.ignored_strings:
                    if str(s.s).find(ignore) >= 0:
                      skip = True
                      break
                 if not skip:
                     self.results['stack_strings'].append(s.s)
-                    for ioc in interesting_strings:
-                        if str(s.s).find(ioc) >= 0:
-                           self.results['warnings'].append('Found suspicious string: {}'.format(s.s))
-                           break
+            self.search_ioc(self.results['stack_strings'])
 
         # Populate results[] with static strings
         self.log('info', 'Found static strings')
         for s in static_strings:
             skip = False
-            for ignore in ignored_strings:
+            for ignore in self.ignored_strings:
                 if str(s).find(ignore) >= 0:
                     skip = True
                     break
             if not skip:
                 self.results['static_strings'].append(s)
-                for ioc in interesting_strings:
-                    if str(s).find(ioc) >= 0:
-                       self.results['warnings'].append('Found suspicious string: {}'.format(s))
-                       break
+        self.search_ioc(self.results['static_strings'])
+
+        # Deduplicate warnings
+        self.results['warnings'] = list(dict.fromkeys(self.results['warnings']))
 
         return True
