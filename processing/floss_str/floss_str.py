@@ -6,6 +6,9 @@
 # Copyright: GPLv3 (http://gplv3.fsf.org/)
 # Feel free to use the code, but please share the changes you've made
 #
+# Original idea found in:
+# https://github.com/capnspacehook/cuckoo/blob/master/cuckoo/processing/strings.py
+#
 
 import os
 import re
