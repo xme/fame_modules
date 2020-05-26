@@ -1,12 +1,12 @@
 import os
 from shutil import copyfile
 
-from fame.core.module import ProcessingModule, ModuleInitializationError
+from fame.core.module import ProcessingModule
 from fame.common.utils import tempdir
 
 from ..docker_utils import HAVE_DOCKER, docker_client
 
-class ACE(ProcessingModule):
+class ace(ProcessingModule):
     name = "ace"
     description = "Extract files from ACE archive."
     acts_on = "ace"
@@ -42,7 +42,9 @@ class ACE(ProcessingModule):
             if line.startswith('warning:'):
                 self.results['warnings'].append(line.lstrip('warning: '))
             elif line.startswith('should_analyze:'):
-                self.add_extracted_file(line.lstrip('should_analyze: '), automatic_analysis=should_analyze)
+                filepath = os.path.join(self.outdir, os.path.basename(line.lstrip('should_analyze: ')))
+                if os.path.isfile(filepath):
+                    self.add_extracted_file(filepath)
             else:
                 self.log("debug", line)
 
@@ -66,7 +68,7 @@ class ACE(ProcessingModule):
 
         # Create temporary directory to get results
         self.outdir = tempdir()
-        
+
         copyfile(target, os.path.join(self.outdir, "archive.ace"))
         target = "/data/archive.ace"
 
@@ -75,5 +77,5 @@ class ACE(ProcessingModule):
 
         # save log output from dockerized app, extract potential redirections
         self.save_output(output)
-        
+
         return True
